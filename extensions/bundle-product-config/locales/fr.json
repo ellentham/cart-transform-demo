@@ -1,0 +1,13 @@
+{
+  "name": "Configuration du lot",
+  "title": "Composants du lot",
+  "noBundles": "Aucune configuration de lot trouvée pour ce produit. Configurez les lots dans la page Lots de l'application.",
+  "errorHeading": "Erreur de chargement des données du lot",
+  "mergeGroup": "Groupe de fusion",
+  "titleOverride": "Remplacement du titre",
+  "priceOverride": "Remplacement du prix",
+  "noOverrides": "Aucun remplacement configuré",
+  "componentHeader": "Composant",
+  "qtyHeader": "Qté",
+  "priceHeader": "Prix"
+}

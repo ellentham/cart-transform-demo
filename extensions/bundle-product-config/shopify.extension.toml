@@ -1,0 +1,17 @@
+api_version = "2025-10"
+
+[[extensions]]
+name = "t:name"
+handle = "bundle-product-config"
+type = "ui_extension"
+uid = "1e4a3ed6-3bfd-01c9-fd04-bdb12e5f64018c0111d4"
+
+[[extensions.targeting]]
+module = "./src/ProductDetailsConfigurationExtension.jsx"
+target = "admin.product-details.configuration.render"
+[extensions.targeting.urls]
+edit = "/app/bundles"
+
+[[extensions.targeting]]
+module = "./src/ProductVariantDetailsConfigurationExtension.jsx"
+target = "admin.product-variant-details.configuration.render"

@@ -1,0 +1,13 @@
+{
+  "name": "Bundle Configuration",
+  "title": "Bundle Components",
+  "noBundles": "No bundle configuration found for this product. Configure bundles in the app's Bundles page.",
+  "errorHeading": "Error loading bundle data",
+  "mergeGroup": "Merge group",
+  "titleOverride": "Title override",
+  "priceOverride": "Price override",
+  "noOverrides": "No overrides configured",
+  "componentHeader": "Component",
+  "qtyHeader": "Qty",
+  "priceHeader": "Price"
+}
