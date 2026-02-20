@@ -1,246 +1,201 @@
-import { useEffect } from "react";
-import type {
-  ActionFunctionArgs,
-  HeadersFunction,
-  LoaderFunctionArgs,
-} from "react-router";
-import { useFetcher } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
-import { authenticate } from "../shopify.server";
+import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
+import { useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
+import { authenticate } from "../shopify.server";
+import { GET_BUNDLE_PRODUCTS } from "../graphql/queries/getBundles";
+
+// ---------------------------------------------------------------------------
+// Loader — quick stats
+// ---------------------------------------------------------------------------
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
-
-  return null;
-};
-
-export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin } = await authenticate.admin(request);
-  const color = ["Red", "Orange", "Yellow", "Green"][
-    Math.floor(Math.random() * 4)
-  ];
-  const response = await admin.graphql(
-    `#graphql
-      mutation populateProduct($product: ProductCreateInput!) {
-        productCreate(product: $product) {
-          product {
-            id
-            title
-            handle
-            status
-            variants(first: 10) {
-              edges {
-                node {
-                  id
-                  price
-                  barcode
-                  createdAt
-                }
-              }
-            }
-          }
-        }
-      }`,
-    {
-      variables: {
-        product: {
-          title: `${color} Snowboard`,
-        },
-      },
-    },
-  );
-  const responseJson = await response.json();
 
-  const product = responseJson.data!.productCreate!.product!;
-  const variantId = product.variants.edges[0]!.node!.id!;
-
-  const variantResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpdateVariant($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-        productVariants {
-          id
-          price
-          barcode
-          createdAt
-        }
-      }
-    }`,
-    {
-      variables: {
-        productId: product.id,
-        variants: [{ id: variantId, price: "100.00" }],
-      },
-    },
-  );
-
-  const variantResponseJson = await variantResponse.json();
-
-  return {
-    product: responseJson!.data!.productCreate!.product,
-    variant:
-      variantResponseJson!.data!.productVariantsBulkUpdate!.productVariants,
+  const response = await admin.graphql(GET_BUNDLE_PRODUCTS, {
+    variables: { query: "" },
+  });
+  const data = (await response.json()) as {
+    data?: {
+      products?: {
+        edges: Array<{
+          node: {
+            variants: {
+              edges: Array<{
+                node: {
+                  bundleType?: { value: string } | null;
+                };
+              }>;
+            };
+          };
+        }>;
+      };
+    };
   };
+
+  let expandCount = 0;
+  let mergeCount = 0;
+  let updateCount = 0;
+
+  for (const edge of data.data?.products?.edges ?? []) {
+    for (const variantEdge of edge.node.variants?.edges ?? []) {
+      const type = variantEdge.node.bundleType?.value;
+      if (type === "expand") expandCount++;
+      else if (type === "merge") mergeCount++;
+      else if (type === "update") updateCount++;
+    }
+  }
+
+  const totalBundles = expandCount + mergeCount + updateCount;
+
+  return { totalBundles, expandCount, mergeCount, updateCount };
 };
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export default function Index() {
-  const fetcher = useFetcher<typeof action>();
-
-  const shopify = useAppBridge();
-  const isLoading =
-    ["loading", "submitting"].includes(fetcher.state) &&
-    fetcher.formMethod === "POST";
-
-  useEffect(() => {
-    if (fetcher.data?.product?.id) {
-      shopify.toast.show("Product created");
-    }
-  }, [fetcher.data?.product?.id, shopify]);
-
-  const generateProduct = () => fetcher.submit({}, { method: "POST" });
+  const { totalBundles, expandCount, mergeCount, updateCount } =
+    useLoaderData<typeof loader>();
 
   return (
-    <s-page heading="Shopify app template">
-      <s-button slot="primary-action" onClick={generateProduct}>
-        Generate a product
-      </s-button>
-
-      <s-section heading="Congrats on creating a new Shopify app 🎉">
+    <s-page heading="Bundle Transform App">
+      {/* ── What this app does ─────────────────────────────────────────── */}
+      <s-section heading="How it works">
         <s-paragraph>
-          This embedded app template uses{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/tools/app-bridge"
-            target="_blank"
-          >
-            App Bridge
-          </s-link>{" "}
-          interface examples like an{" "}
-          <s-link href="/app/additional">additional page in the app nav</s-link>
-          , as well as an{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            Admin GraphQL
-          </s-link>{" "}
-          mutation demo, to provide a starting point for app development.
+          This app lets you configure Shopify Functions that automatically
+          transform cart lines at checkout. Three transform types are supported:
         </s-paragraph>
-      </s-section>
-      <s-section heading="Get started with products">
-        <s-paragraph>
-          Generate a product with GraphQL and get the JSON output for that
-          product. Learn more about the{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql/latest/mutations/productCreate"
-            target="_blank"
-          >
-            productCreate
-          </s-link>{" "}
-          mutation in our API references.
-        </s-paragraph>
-        <s-stack direction="inline" gap="base">
-          <s-button
-            onClick={generateProduct}
-            {...(isLoading ? { loading: true } : {})}
-          >
-            Generate a product
-          </s-button>
-          {fetcher.data?.product && (
-            <s-button
-              onClick={() => {
-                shopify.intents.invoke?.("edit:shopify/Product", {
-                  value: fetcher.data?.product?.id,
-                });
-              }}
-              target="_blank"
-              variant="tertiary"
-            >
-              Edit product
-            </s-button>
-          )}
+        <s-stack direction="block" gap="small-200">
+          <s-stack direction="inline" gap="small-200">
+            <s-badge tone="info">expand</s-badge>
+            <s-text>
+              Split a single bundle product into its component items — great for
+              gift sets or kits.
+            </s-text>
+          </s-stack>
+          <s-stack direction="inline" gap="small-200">
+            <s-badge tone="success">merge</s-badge>
+            <s-text>
+              Combine separate cart lines into one bundle line — useful for
+              mix-and-match bundles.
+            </s-text>
+          </s-stack>
+          <s-stack direction="inline" gap="small-200">
+            <s-badge tone="warning">update</s-badge>
+            <s-text>
+              Override the title or price of a cart line — useful for
+              subscription or loyalty pricing.
+            </s-text>
+          </s-stack>
         </s-stack>
-        {fetcher.data?.product && (
-          <s-section heading="productCreate mutation">
-            <s-stack direction="block" gap="base">
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.product, null, 2)}</code>
-                </pre>
-              </s-box>
+      </s-section>
 
-              <s-heading>productVariantsBulkUpdate mutation</s-heading>
+      {/* ── Quick stats ────────────────────────────────────────────────── */}
+      <s-section heading="Bundle overview">
+        {totalBundles === 0 ? (
+          <s-paragraph>
+            No bundles configured yet.{" "}
+            <s-link href="/app/bundles">Create your first bundle</s-link> to
+            get started.
+          </s-paragraph>
+        ) : (
+          <s-stack direction="block" gap="base">
+            <s-paragraph>
+              <s-text type="strong">{totalBundles}</s-text> bundle
+              {totalBundles !== 1 ? "s" : ""} configured across your product
+              catalog.
+            </s-paragraph>
+            <s-stack direction="inline" gap="base">
               <s-box
                 padding="base"
-                borderWidth="base"
+                border="base"
                 borderRadius="base"
-                background="subdued"
               >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.variant, null, 2)}</code>
-                </pre>
+                <s-stack direction="block" gap="small-100">
+                  <s-text type="strong">{expandCount}</s-text>
+                  <s-badge tone="info">expand</s-badge>
+                </s-stack>
+              </s-box>
+              <s-box
+                padding="base"
+                border="base"
+                borderRadius="base"
+              >
+                <s-stack direction="block" gap="small-100">
+                  <s-text type="strong">{mergeCount}</s-text>
+                  <s-badge tone="success">merge</s-badge>
+                </s-stack>
+              </s-box>
+              <s-box
+                padding="base"
+                border="base"
+                borderRadius="base"
+              >
+                <s-stack direction="block" gap="small-100">
+                  <s-text type="strong">{updateCount}</s-text>
+                  <s-badge tone="warning">update</s-badge>
+                </s-stack>
               </s-box>
             </s-stack>
-          </s-section>
+          </s-stack>
         )}
       </s-section>
 
-      <s-section slot="aside" heading="App template specs">
-        <s-paragraph>
-          <s-text>Framework: </s-text>
-          <s-link href="https://reactrouter.com/" target="_blank">
-            React Router
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Interface: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/app-home/using-polaris-components"
-            target="_blank"
-          >
-            Polaris web components
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>API: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            GraphQL
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Database: </s-text>
-          <s-link href="https://www.prisma.io/" target="_blank">
-            Prisma
-          </s-link>
-        </s-paragraph>
+      {/* ── Quick links (aside) ────────────────────────────────────────── */}
+      <s-section slot="aside" heading="Get started">
+        <s-stack direction="block" gap="base">
+          <s-box padding="base" border="base" borderRadius="base">
+            <s-stack direction="block" gap="small-200">
+              <s-text type="strong">Configure Bundles</s-text>
+              <s-paragraph>
+                Create and manage bundle configurations for your product
+                variants.
+              </s-paragraph>
+              <s-button href="/app/bundles" variant="secondary">
+                Go to Bundles
+              </s-button>
+            </s-stack>
+          </s-box>
+          <s-box padding="base" border="base" borderRadius="base">
+            <s-stack direction="block" gap="small-200">
+              <s-text type="strong">Test Dashboard</s-text>
+              <s-paragraph>
+                Simulate the cart transform function without going through
+                checkout. See exactly what operations will be applied.
+              </s-paragraph>
+              <s-button href="/app/test" variant="secondary">
+                Open Test Dashboard
+              </s-button>
+            </s-stack>
+          </s-box>
+        </s-stack>
       </s-section>
 
-      <s-section slot="aside" heading="Next steps">
+      <s-section slot="aside" heading="Resources">
         <s-unordered-list>
           <s-list-item>
-            Build an{" "}
             <s-link
-              href="https://shopify.dev/docs/apps/getting-started/build-app-example"
+              href="https://shopify.dev/docs/apps/build/functions/input-output/cart-transform"
               target="_blank"
             >
-              example app
+              Cart Transform Function docs
             </s-link>
           </s-list-item>
           <s-list-item>
-            Explore Shopify&apos;s API with{" "}
             <s-link
-              href="https://shopify.dev/docs/apps/tools/graphiql-admin-api"
+              href="https://shopify.dev/docs/api/functions/reference/cart-transform"
               target="_blank"
             >
-              GraphiQL
+              Function API reference
+            </s-link>
+          </s-list-item>
+          <s-list-item>
+            <s-link
+              href="https://shopify.dev/docs/apps/selling-strategies/bundles"
+              target="_blank"
+            >
+              Bundles developer guide
             </s-link>
           </s-list-item>
         </s-unordered-list>
