@@ -1,0 +1,86 @@
+{
+  "presentmentCurrencyRate": 1.0,
+  "cart": {
+    "lines": [
+      {
+        "id": "gid://shopify/CartLine/10",
+        "quantity": 1,
+        "cost": {
+          "amountPerQuantity": {
+            "amount": "30.00",
+            "currencyCode": "USD"
+          }
+        },
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/301",
+          "title": "Widget A",
+          "product": {
+            "bundleComponents": {
+              "jsonValue": [
+                {
+                  "variantId": "gid://shopify/ProductVariant/301",
+                  "quantity": 1,
+                  "price": "30.00"
+                }
+              ]
+            },
+            "bundleType": {
+              "value": "merge"
+            }
+          }
+        },
+        "attributes": [
+          { "key": "_bundle_group", "value": "group-alpha" }
+        ]
+      },
+      {
+        "id": "gid://shopify/CartLine/11",
+        "quantity": 1,
+        "cost": {
+          "amountPerQuantity": {
+            "amount": "20.00",
+            "currencyCode": "USD"
+          }
+        },
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/302",
+          "title": "Widget B",
+          "product": {
+            "bundleComponents": null,
+            "bundleType": {
+              "value": "merge"
+            }
+          }
+        },
+        "attributes": [
+          { "key": "_bundle_group", "value": "group-alpha" }
+        ]
+      },
+      {
+        "id": "gid://shopify/CartLine/12",
+        "quantity": 1,
+        "cost": {
+          "amountPerQuantity": {
+            "amount": "15.00",
+            "currencyCode": "USD"
+          }
+        },
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/303",
+          "title": "Standalone Item",
+          "product": {
+            "bundleComponents": null,
+            "bundleType": null
+          }
+        },
+        "attributes": []
+      }
+    ]
+  },
+  "cartTransform": {
+    "metafield": null
+  }
+}

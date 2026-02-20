@@ -1,0 +1,37 @@
+{
+  "presentmentCurrencyRate": 1.0,
+  "cart": {
+    "lines": [
+      {
+        "id": "gid://shopify/CartLine/20",
+        "quantity": 1,
+        "cost": {
+          "amountPerQuantity": {
+            "amount": "99.99",
+            "currencyCode": "USD"
+          }
+        },
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/401",
+          "title": "Premium Widget",
+          "product": {
+            "bundleComponents": null,
+            "bundleType": {
+              "value": "update"
+            }
+          }
+        },
+        "attributes": []
+      }
+    ]
+  },
+  "cartTransform": {
+    "metafield": {
+      "jsonValue": {
+        "title": "Exclusive Premium Widget",
+        "price": "79.99"
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+query RunInput {
+  presentmentCurrencyRate
+  cart {
+    lines {
+      id
+      quantity
+      cost {
+        amountPerQuantity {
+          amount
+          currencyCode
+        }
+      }
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          id
+          title
+          product {
+            bundleComponents: metafield(namespace: "$app:bundle", key: "components") {
+              jsonValue
+            }
+            bundleType: metafield(namespace: "$app:bundle", key: "type") {
+              value
+            }
+          }
+        }
+      }
+      attributes {
+        key
+        value
+      }
+    }
+  }
+  cartTransform {
+    metafield(namespace: "$app:bundle", key: "config") {
+      jsonValue
+    }
+  }
+}

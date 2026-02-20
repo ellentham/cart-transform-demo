@@ -12,7 +12,7 @@ hooks:
 tasks:
   - id: scaffold-app
     name: Scaffold Shopify React Router app and initialize repo
-    status: in_progress
+    status: done
     attempts: 2
     max_retries: 3
     cwd: /Users/ellentham/src/cart-transform-demo
@@ -78,11 +78,11 @@ tasks:
     result:
       branch_name: main
       pr_url: null
-    last_error: "\e[0;32m[INFO]\e[0m Evaluating 3 exit condition(s)... \e[0;32m[INFO]\e[0m   Checking branch is pushed... \e[1;33m[WARN]\e[0m   Branch not pushed to remote Exit condition failed: branch 'main' not pushed to remote "
+    last_error: null
   - id: cart-transform-function
     name: Generate and implement TypeScript cart transform function
-    status: pending
-    attempts: 0
+    status: in_progress
+    attempts: 2
     max_retries: 3
     cwd: /Users/ellentham/src/cart-transform-demo
     prompt: |

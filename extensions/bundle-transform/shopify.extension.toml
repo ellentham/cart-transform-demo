@@ -1,0 +1,11 @@
+api_version = "2025-10"
+
+[[extensions]]
+name = "bundle-transform"
+handle = "bundle-transform"
+type = "function"
+
+[[extensions.targeting]]
+target = "cart.transform.run"
+input_query = "src/run.graphql"
+export = "cartTransformRun"

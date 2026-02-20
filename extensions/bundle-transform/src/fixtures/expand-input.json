@@ -1,0 +1,45 @@
+{
+  "presentmentCurrencyRate": 1.0,
+  "cart": {
+    "lines": [
+      {
+        "id": "gid://shopify/CartLine/1",
+        "quantity": 1,
+        "cost": {
+          "amountPerQuantity": {
+            "amount": "50.00",
+            "currencyCode": "USD"
+          }
+        },
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/100",
+          "title": "Starter Bundle",
+          "product": {
+            "bundleComponents": {
+              "jsonValue": [
+                {
+                  "variantId": "gid://shopify/ProductVariant/201",
+                  "quantity": 1,
+                  "price": "25.00"
+                },
+                {
+                  "variantId": "gid://shopify/ProductVariant/202",
+                  "quantity": 2,
+                  "price": "12.50"
+                }
+              ]
+            },
+            "bundleType": {
+              "value": "expand"
+            }
+          }
+        },
+        "attributes": []
+      }
+    ]
+  },
+  "cartTransform": {
+    "metafield": null
+  }
+}
