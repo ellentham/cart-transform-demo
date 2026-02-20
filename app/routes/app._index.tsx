@@ -1,5 +1,5 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { useLoaderData } from "react-router";
+import { useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { GET_BUNDLE_PRODUCTS } from "../graphql/queries/getBundles";
@@ -199,6 +199,21 @@ export default function Index() {
             </s-link>
           </s-list-item>
         </s-unordered-list>
+      </s-section>
+    </s-page>
+  );
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  const message =
+    error instanceof Error ? error.message : "An unexpected error occurred.";
+  return (
+    <s-page heading="Something went wrong">
+      <s-section>
+        <s-banner tone="critical" heading="Error loading dashboard">
+          {message}
+        </s-banner>
       </s-section>
     </s-page>
   );

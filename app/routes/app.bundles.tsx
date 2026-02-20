@@ -4,7 +4,7 @@ import type {
   HeadersFunction,
   LoaderFunctionArgs,
 } from "react-router";
-import { useLoaderData, useFetcher } from "react-router";
+import { useLoaderData, useFetcher, useRouteError } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
@@ -331,6 +331,12 @@ export default function BundlesPage() {
       setModalError("Please select a parent variant.");
       return;
     }
+    if (bundleType === "expand" && components.length === 0) {
+      setModalError(
+        "An expand bundle requires at least one component variant."
+      );
+      return;
+    }
     setModalError(null);
 
     let payload: unknown;
@@ -639,6 +645,21 @@ export default function BundlesPage() {
           Cancel
         </s-button>
       </s-modal>
+    </s-page>
+  );
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  const message =
+    error instanceof Error ? error.message : "An unexpected error occurred.";
+  return (
+    <s-page heading="Something went wrong">
+      <s-section>
+        <s-banner tone="critical" heading="Error loading bundles">
+          {message}
+        </s-banner>
+      </s-section>
     </s-page>
   );
 }

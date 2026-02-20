@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { useLoaderData } from "react-router";
+import { useLoaderData, useRouteError } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
@@ -898,6 +898,21 @@ export default function TestDashboard() {
             </s-stack>
           </s-box>
         </s-stack>
+      </s-section>
+    </s-page>
+  );
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  const message =
+    error instanceof Error ? error.message : "An unexpected error occurred.";
+  return (
+    <s-page heading="Something went wrong">
+      <s-section>
+        <s-banner tone="critical" heading="Error loading test dashboard">
+          {message}
+        </s-banner>
       </s-section>
     </s-page>
   );

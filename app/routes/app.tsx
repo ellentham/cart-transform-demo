@@ -1,5 +1,5 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { Outlet, useLoaderData, useRouteError } from "react-router";
+import { Outlet, useLoaderData, useRouteError, useNavigation } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 
@@ -14,9 +14,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function App() {
   const { apiKey } = useLoaderData<typeof loader>();
+  const navigation = useNavigation();
+  const isNavigating = navigation.state !== "idle";
 
   return (
     <AppProvider embedded apiKey={apiKey}>
+      {isNavigating && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: "3px",
+            background: "var(--p-color-bg-fill-brand, #008060)",
+            zIndex: 9999,
+            animation: "pulse 1.2s ease-in-out infinite",
+          }}
+        />
+      )}
       <s-app-nav>
         <s-link href="/app">Home</s-link>
         <s-link href="/app/bundles">Bundles</s-link>
