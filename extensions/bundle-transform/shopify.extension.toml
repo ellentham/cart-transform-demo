@@ -3,6 +3,7 @@ api_version = "2025-10"
 [[extensions]]
 name = "bundle-transform"
 handle = "bundle-transform"
+uid = "3bce9038-da6c-a56e-c2fa-d26f4b5bf7aeb8d94064"
 type = "function"
 
 [[extensions.targeting]]
