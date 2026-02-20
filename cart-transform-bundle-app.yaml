@@ -1,0 +1,520 @@
+name: cart-transform-bundle-app
+description: |
+  Build a Shopify app for testing bundles created with cart transform functions.
+  The app includes a TypeScript cart transform function (expand, merge, update operations),
+  an admin UI for configuring bundles, and a testing dashboard to preview transform results.
+base_branch: main
+git_workflow: vanilla
+branch_strategy: stacked
+hooks:
+  pre_task: |
+    git fetch origin 2>/dev/null || true
+tasks:
+  - id: scaffold-app
+    name: Scaffold Shopify React Router app and initialize repo
+    status: in_progress
+    attempts: 1
+    max_retries: 3
+    cwd: /Users/ellentham/src/cart-transform-demo
+    hooks:
+      pre_task: |
+        echo "Skipping git fetch for initial scaffold"
+    prompt: |
+      You are setting up a new Shopify app project in /Users/ellentham/src/cart-transform-demo.
+      The directory is currently empty.
+
+      STEPS:
+
+      1. Initialize a git repo:
+         ```
+         cd /Users/ellentham/src/cart-transform-demo
+         git init
+         git checkout -b main
+         ```
+
+      2. Scaffold a Shopify React Router app using the CLI. Run:
+         ```
+         shopify app init --template=https://github.com/Shopify/shopify-app-template-react-router --name=cart-transform-demo --path=/Users/ellentham/src/cart-transform-demo
+         ```
+         If the CLI asks interactive questions, select reasonable defaults (React Router template, npm/pnpm).
+         If it creates a subdirectory, move contents up to the current directory.
+
+      3. After scaffolding, verify the project structure exists:
+         - package.json with @shopify/shopify-app-react-router dependency
+         - app/ directory with routes
+         - prisma/ directory
+         - shopify.app.toml
+
+      4. Install dependencies:
+         ```
+         npm install
+         ```
+
+      5. Make sure shopify.app.toml has the correct scopes. Add these if missing:
+         ```
+         scopes = "read_products,write_products"
+         ```
+
+      6. Create an initial commit:
+         ```
+         git add -A
+         git commit -m "Initial scaffold: Shopify React Router app"
+         ```
+
+      7. Create a GitHub repo and push (the user has gh CLI available):
+         ```
+         gh repo create cart-transform-demo --public --source=. --push
+         ```
+         If that fails due to naming conflicts, try with the user's GitHub username prefix.
+
+      DO NOT run `shopify app dev` or `shopify app deploy`.
+    exit_conditions:
+      - type: file_exists
+        path: "package.json"
+      - type: file_exists
+        path: "shopify.app.toml"
+      - type: branch_pushed
+    depends_on: []
+    result:
+      branch_name: null
+      pr_url: null
+    last_error: null
+  - id: cart-transform-function
+    name: Generate and implement TypeScript cart transform function
+    status: pending
+    attempts: 0
+    max_retries: 3
+    cwd: /Users/ellentham/src/cart-transform-demo
+    prompt: |
+      You are implementing a Cart Transform function extension for a Shopify app.
+      The app is already scaffolded in /Users/ellentham/src/cart-transform-demo.
+
+      IMPORTANT: Use the shopify-dev-mcp tools to validate your GraphQL queries. Always call
+      learn_shopify_api with api="functions" first, then use validate_graphql_codeblocks and
+      introspect_graphql_schema with the functions_cart_transform schema.
+
+      STEPS:
+
+      1. Create a new branch:
+         ```
+         git checkout -b feat/cart-transform-function
+         ```
+
+      2. Generate the cart transform extension:
+         ```
+         shopify app generate extension --template cart_transform --flavor typescript --name=bundle-transform
+         ```
+         This creates an extensions/bundle-transform/ directory.
+
+      3. Navigate to the extension directory and understand the generated schema:
+         - Read extensions/bundle-transform/schema.graphql
+         - Read extensions/bundle-transform/shopify.extension.toml
+
+      4. Implement the GraphQL input query in src/run.graphql:
+         The query should fetch:
+         - presentmentCurrencyRate (for currency conversion)
+         - cart.lines with: id, quantity, cost.amountPerQuantity (amount, currencyCode)
+         - cart.lines.merchandise (with __typename, and on ProductVariant: id, title, product info)
+         - On each ProductVariant's product, fetch TWO metafields:
+           a. bundleComponents: metafield(namespace: "$app:bundle", key: "components") { jsonValue }
+              — This stores an array of { variantId: string, quantity: number, price: string }
+           b. bundleType: metafield(namespace: "$app:bundle", key: "type") { value }
+              — This stores "expand" | "merge" | "update" to determine which operation to use
+         - cart.lines.attributes (key, value) for line-item properties
+         - cartTransform.metafield(namespace: "$app:bundle", key: "config") { jsonValue }
+           for global function configuration
+
+         Use the query name "RunInput" for TypeScript.
+
+      5. VALIDATE the input query using the shopify-dev-mcp validate_graphql_codeblocks tool
+         with api "functions_cart_transform". Fix any errors.
+
+      6. Implement the function logic in src/run.ts:
+
+         The function export should be named `cartTransformRun` and accept RunInput, returning CartTransformRunResult.
+
+         Logic:
+         a. Iterate over cart lines
+         b. For each line that is a ProductVariant with bundle metafields:
+            - If bundleType == "expand": create a lineExpand operation
+              - Use the bundleComponents array to create expandedCartItems
+              - Each component gets its specified variantId, quantity, and price (as fixedPricePerUnit)
+              - Set the title from the parent variant
+            - If bundleType == "merge": collect lines that share a merge group
+              - Group lines by a shared attribute "_bundle_group"
+              - Create linesMerge operations with parentVariantId, title, and price adjustment
+            - If bundleType == "update": create a lineUpdate operation
+              - Override title and/or price from the metafield config
+         c. Return { operations } with the collected operations
+
+         Handle edge cases:
+         - Lines without bundle metafields are skipped (no-op)
+         - Empty operations array means no changes
+         - Apply presentmentCurrencyRate to prices
+
+      7. Create test input JSON files in src/fixtures/:
+         - expand-input.json: A cart with a parent bundle product that has component metafields
+         - merge-input.json: A cart with multiple lines sharing a _bundle_group attribute
+         - update-input.json: A cart with a line whose title/price should be overridden
+
+      8. Build the function:
+         ```
+         cd extensions/bundle-transform
+         shopify app function build
+         ```
+         Fix any build errors.
+
+      9. Test the function with each fixture:
+         ```
+         shopify app function run --input=src/fixtures/expand-input.json --export=cart_transform_run
+         shopify app function run --input=src/fixtures/merge-input.json --export=cart_transform_run
+         shopify app function run --input=src/fixtures/update-input.json --export=cart_transform_run
+         ```
+         Verify the output matches expected operations.
+
+      10. Commit and push:
+          ```
+          git add -A
+          git commit -m "feat: implement cart transform function with expand/merge/update operations"
+          git push -u origin feat/cart-transform-function
+          ```
+    exit_conditions:
+      - type: file_exists
+        path: "extensions/bundle-transform/src/run.ts"
+      - type: file_exists
+        path: "extensions/bundle-transform/src/run.graphql"
+      - type: command
+        run: "cd extensions/bundle-transform && shopify app function build"
+        expect: success
+      - type: branch_pushed
+    depends_on:
+      - scaffold-app
+    result:
+      branch_name: null
+      pr_url: null
+  - id: bundle-config-ui
+    name: Build admin UI for bundle configuration
+    status: pending
+    attempts: 0
+    max_retries: 3
+    cwd: /Users/ellentham/src/cart-transform-demo
+    prompt: |
+      You are building the admin UI for a Shopify cart transform bundle testing app.
+      The app is in /Users/ellentham/src/cart-transform-demo and uses React Router with Polaris.
+
+      IMPORTANT: Use the shopify-dev-mcp tools. Call learn_shopify_api with api="admin" and
+      api="polaris-app-home" to get context. Use validate_graphql_codeblocks to validate
+      Admin API queries. Use search_docs_chunks and fetch_full_docs for Polaris component examples.
+
+      STEPS:
+
+      1. Create a new branch from the previous work:
+         ```
+         git checkout feat/cart-transform-function
+         git pull origin feat/cart-transform-function
+         git checkout -b feat/bundle-config-ui
+         ```
+
+      2. Add required scopes to shopify.app.toml if not present:
+         ```
+         scopes = "read_products,write_products"
+         ```
+
+      3. Create the bundle configuration route at app/routes/app.bundles.tsx:
+
+         This page allows merchants to:
+         - View existing bundle configurations (list of bundles with parent variant, type, components)
+         - Create a new bundle by:
+           a. Selecting a parent product/variant using Shopify's resource picker
+           b. Choosing bundle type: "expand", "merge", or "update"
+           c. For expand: picking component variants, setting quantities and individual prices
+           d. For merge: defining the merge group name and price adjustment (percentage or fixed)
+           e. For update: setting title override, price override, image URL
+         - Save the configuration (writes metafields to the variant)
+         - Delete a bundle configuration
+
+         Use Polaris components for the UI. The page should have a modern, clean layout.
+         Use these Polaris components from @shopify/polaris:
+         - Page, Layout, Card, BlockStack, InlineStack
+         - Text, TextField, Select, Button, Banner, Badge
+         - DataTable or IndexTable for the bundle list
+         - Modal for the create/edit form
+         - ResourcePicker from @shopify/app-bridge-react for product/variant selection
+
+      4. Create GraphQL operations in app/graphql/ directory:
+
+         a. app/graphql/queries/getBundles.ts:
+            Query products that have the bundle metafields set. Use:
+            ```graphql
+            query GetBundleProducts($query: String!) {
+              products(first: 50, query: $query) {
+                edges {
+                  node {
+                    id
+                    title
+                    variants(first: 10) {
+                      edges {
+                        node {
+                          id
+                          title
+                          price
+                          metafield(namespace: "$app:bundle", key: "components") { value }
+                          metafield(namespace: "$app:bundle", key: "type") { value }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            ```
+            Note: You cannot query two metafields with the same field name - use aliases.
+
+         b. app/graphql/mutations/setBundleMetafields.ts:
+            Mutation to write metafields on a variant:
+            ```graphql
+            mutation SetBundleMetafields($metafields: [MetafieldsSetInput!]!) {
+              metafieldsSet(metafields: $metafields) {
+                metafields { id namespace key value }
+                userErrors { field message }
+              }
+            }
+            ```
+
+         c. app/graphql/mutations/deleteBundleMetafields.ts:
+            Mutation to delete metafields to remove a bundle config.
+
+         VALIDATE all GraphQL operations using validate_graphql_codeblocks with api "admin".
+
+      5. Wire up the route's loader and action:
+         - loader: Authenticate with admin, fetch products with bundle metafields
+         - action: Handle create/update/delete of bundle configurations via metafield mutations
+
+      6. Update app navigation in app/routes/app.tsx to add a "Bundles" link:
+         ```jsx
+         <ui-nav-menu>
+           <a href="/app" rel="home">Home</a>
+           <a href="/app/bundles">Bundles</a>
+         </ui-nav-menu>
+         ```
+
+      7. Create the bundle create/edit route at app/routes/app.bundles.$action.tsx or use
+         a modal-based approach within the bundles page. A modal approach is preferred for UX.
+
+      8. Commit and push:
+         ```
+         git add -A
+         git commit -m "feat: add bundle configuration UI with metafield management"
+         git push -u origin feat/bundle-config-ui
+         ```
+    exit_conditions:
+      - type: file_exists
+        path: "app/routes/app.bundles.tsx"
+      - type: branch_pushed
+    depends_on:
+      - cart-transform-function
+    result:
+      branch_name: null
+      pr_url: null
+  - id: testing-dashboard
+    name: Build bundle testing dashboard
+    status: pending
+    attempts: 0
+    max_retries: 3
+    cwd: /Users/ellentham/src/cart-transform-demo
+    prompt: |
+      You are building a testing dashboard for a Shopify cart transform bundle app.
+      The app is in /Users/ellentham/src/cart-transform-demo.
+
+      IMPORTANT: Use the shopify-dev-mcp tools for Polaris and Admin API guidance.
+
+      STEPS:
+
+      1. Create a new branch from the previous work:
+         ```
+         git checkout feat/bundle-config-ui
+         git pull origin feat/bundle-config-ui
+         git checkout -b feat/testing-dashboard
+         ```
+
+      2. Create the testing dashboard route at app/routes/app.test.tsx:
+
+         This page is the core value of the app — it lets merchants TEST their cart transform
+         function without going through checkout. The page should have these sections:
+
+         SECTION 1: "Configured Bundles" overview
+         - Display all bundles (reuse the query from the bundles page)
+         - Show bundle type (expand/merge/update) with color-coded badges
+         - Show parent product, component details, pricing
+
+         SECTION 2: "Simulate Cart Transform"
+         - A form to build a simulated cart:
+           a. "Add to Cart" button that opens a resource picker for products/variants
+           b. Each added item shows: variant title, quantity (editable), price
+           c. Ability to add custom line item attributes (key/value pairs)
+           d. A "_bundle_group" attribute helper for merge testing
+         - A "Run Transform" button that:
+           a. Constructs the input JSON that the cart transform function would receive
+           b. Shows the constructed input JSON in a collapsible code viewer
+           c. Shows the expected output JSON (operations) in another code viewer
+           d. Renders a visual "before and after" comparison:
+              - BEFORE: the raw cart lines as added
+              - AFTER: the cart lines after transform operations are applied
+              - Use Cards with visual indicators (arrows, color coding) to show expand/merge/update
+
+         SECTION 3: "Quick Test Fixtures"
+         - Pre-built test scenarios that merchants can run with one click:
+           a. "Expand Bundle" — loads a parent product with components and shows the expansion
+           b. "Merge Lines" — loads separate items and shows them merging into a bundle
+           c. "Update Presentation" — loads a line and shows title/price override
+         - Each fixture populates the simulator and auto-runs
+
+         Use these Polaris components:
+         - Page with tabs (TabList) for the sections
+         - Card, BlockStack, InlineStack for layout
+         - DataTable for cart lines display
+         - TextField, Select for inputs
+         - Button with loading state for "Run Transform"
+         - Banner for success/error states
+         - Collapsible for JSON viewers
+         - Badge for operation types
+         - Use a monospace font and syntax highlighting (or <pre> tags) for JSON display
+
+      3. Implement the cart transform simulation logic as a utility:
+
+         Create app/utils/simulate-transform.ts:
+         - Takes cart lines data and bundle configurations
+         - Applies the same logic as the actual cart transform function
+         - Returns the operations and a "transformed cart" view
+         - This runs client-side — no Wasm needed, just the same business logic in TypeScript
+
+      4. Create app/utils/build-function-input.ts:
+         - Takes the simulated cart data and bundle configurations
+         - Constructs the exact JSON structure that the cart transform function would receive as input
+         - Matches the shape defined in extensions/bundle-transform/src/run.graphql
+
+      5. Update navigation in app/routes/app.tsx:
+         ```jsx
+         <ui-nav-menu>
+           <a href="/app" rel="home">Home</a>
+           <a href="/app/bundles">Bundles</a>
+           <a href="/app/test">Test</a>
+         </ui-nav-menu>
+         ```
+
+      6. Update the app home page (app/routes/app._index.tsx) to show:
+         - Quick stats: number of configured bundles, last test run
+         - Quick links to "Configure Bundles" and "Test Dashboard"
+         - A brief explanation of what the app does
+
+      7. Commit and push:
+         ```
+         git add -A
+         git commit -m "feat: add bundle testing dashboard with cart transform simulator"
+         git push -u origin feat/testing-dashboard
+         ```
+    exit_conditions:
+      - type: file_exists
+        path: "app/routes/app.test.tsx"
+      - type: file_exists
+        path: "app/utils/simulate-transform.ts"
+      - type: branch_pushed
+    depends_on:
+      - bundle-config-ui
+    result:
+      branch_name: null
+      pr_url: null
+  - id: integration-polish
+    name: Integration testing, error handling, and polish
+    status: pending
+    attempts: 0
+    max_retries: 3
+    cwd: /Users/ellentham/src/cart-transform-demo
+    prompt: |
+      You are polishing a Shopify cart transform bundle testing app.
+      The app is in /Users/ellentham/src/cart-transform-demo.
+
+      STEPS:
+
+      1. Create a new branch from the previous work:
+         ```
+         git checkout feat/testing-dashboard
+         git pull origin feat/testing-dashboard
+         git checkout -b feat/integration-polish
+         ```
+
+      2. Review all routes and components for consistency:
+         - Ensure all routes handle loading states properly (use Polaris Spinner/SkeletonPage)
+         - Add error boundaries to all routes
+         - Ensure all forms have proper validation and error messages
+         - Check that all GraphQL queries handle userErrors
+
+      3. Add a comprehensive README.md:
+         ```markdown
+         # Cart Transform Bundle Testing App
+
+         A Shopify app for testing and previewing cart transform function bundles.
+
+         ## Features
+         - Configure product bundles with expand, merge, and update operations
+         - Visual cart transform simulator — see before/after cart state
+         - Pre-built test fixtures for quick testing
+         - Admin UI built with Polaris
+
+         ## Setup
+         1. Clone the repo
+         2. Run `npm install`
+         3. Run `shopify app dev` to start development
+         4. Install on a development store
+
+         ## Architecture
+         - **App**: React Router + Polaris embedded app
+         - **Function**: TypeScript cart transform function (extensions/bundle-transform/)
+         - **Data**: Bundle config stored as variant metafields in namespace `$app:bundle`
+
+         ## Cart Transform Operations
+         - **Expand**: Break a parent bundle into component line items
+         - **Merge**: Combine multiple lines into a single bundle line
+         - **Update**: Override line item presentation (title, price, image)
+
+         ## Development
+         - `shopify app dev` — start dev server
+         - `shopify app function build` — build the function (in extensions/bundle-transform/)
+         - `shopify app function run --input=<file>` — test function locally
+         ```
+
+      4. Verify the TypeScript function still builds:
+         ```
+         cd extensions/bundle-transform && shopify app function build
+         ```
+
+      5. Run any available linting/type-checking:
+         ```
+         npx tsc --noEmit
+         ```
+         Fix any type errors.
+
+      6. Ensure the app builds successfully:
+         ```
+         npm run build
+         ```
+         Fix any build errors.
+
+      7. Commit and push:
+         ```
+         git add -A
+         git commit -m "chore: polish app with error handling, loading states, and README"
+         git push -u origin feat/integration-polish
+         ```
+    exit_conditions:
+      - type: file_exists
+        path: "README.md"
+      - type: command
+        run: "npm run build"
+        expect: success
+      - type: branch_pushed
+    depends_on:
+      - testing-dashboard
+    result:
+      branch_name: null
+      pr_url: null
